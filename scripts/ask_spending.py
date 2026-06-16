@@ -28,6 +28,18 @@ def detect_intent(question):
 
     if any(word in q for word in ["spend", "spent", "total"]):
         return "total"
+    
+    if any(phrase in q for phrase in ["big expenses", "large expenses", "big purchases", "large purchases"]):
+        return "big_expenses"
+
+    if "transport" in q or "train" in q:
+        return "transport_total"
+
+    if "shopping" in q:
+        return "shopping_total"
+
+    if "coffee" in q:
+        return "coffee_total"
 
     return "unknown"
 
@@ -47,6 +59,27 @@ SQL_BY_INTENT = {
         FROM spending
         GROUP BY category
         ORDER BY SUM(amount) DESC
+    """,
+        "big_expenses": """
+        SELECT date, category, amount, raw_text
+        FROM spending
+        WHERE amount >= 5000
+        ORDER BY amount DESC
+    """,
+    "transport_total": """
+        SELECT SUM(amount)
+        FROM spending
+        WHERE category IN ('transport', 'train')
+    """,
+    "shopping_total": """
+        SELECT SUM(amount)
+        FROM spending
+        WHERE category = 'shopping'
+    """,
+    "coffee_total": """
+        SELECT SUM(amount)
+        FROM spending
+        WHERE category = 'coffee'
     """,
     "food_total": """
         SELECT SUM(amount)
@@ -92,6 +125,13 @@ def print_answer(intent, rows):
     elif intent == "category_totals":
         for category, total in rows:
             print(f"{category}: {yen(total)}")
+
+    elif intent in ["transport_total", "shopping_total", "coffee_total"]:
+        print(yen(rows[0][0]))
+
+    elif intent == "big_expenses":
+        for date, category, amount, raw_text in rows:
+            print(f"{date} | {category} | {yen(amount)} | {raw_text}")
 
     else:
         print(rows)
