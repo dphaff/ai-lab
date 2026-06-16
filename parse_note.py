@@ -149,4 +149,5 @@ def main():
     print(f"Saved {len(all_days)} parsed days to {OUTPUT}")
 
 
-main()
+if __name__ == "__main__":
+    main()
