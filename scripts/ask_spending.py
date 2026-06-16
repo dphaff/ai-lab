@@ -1,165 +1,120 @@
 import sqlite3
-import subprocess
 from pathlib import Path
 
 DB = Path("outputs/spending.db")
-MODEL = "llama3.2:3b"
-
-SCHEMA = """
-Table: spending
-
-Columns:
-- id INTEGER
-- date TEXT
-- location TEXT
-- category TEXT
-- description TEXT
-- amount REAL
-- currency TEXT
-- raw_text TEXT
-"""
 
 
 def normalise_question(question):
     return question.lower().strip().rstrip("?!.").strip()
 
 
-def clean_sql(sql):
-    sql = sql.strip()
-    sql = sql.replace("```sql", "").replace("```", "").strip()
-    sql = " ".join(sql.split())
-    return sql
+def detect_intent(question):
+    q = normalise_question(question)
+
+    if "daily burn" in q and any(word in q for word in ["big", "large", "one-off", "expensive"]):
+        return "daily_burn_excluding_large"
+
+    if "daily burn" in q:
+        return "daily_burn"
+
+    if "category" in q:
+        return "category_totals"
+
+    if "food" in q:
+        return "food_total"
+
+    if "japan" in q and any(word in q for word in ["spend", "spent", "total"]):
+        return "total_japan"
+
+    if any(word in q for word in ["spend", "spent", "total"]):
+        return "total"
+
+    return "unknown"
 
 
-def get_known_query(question):
-    known_queries = {
-        "daily burn excluding big purchases": """
-            SELECT SUM(amount) / COUNT(DISTINCT date)
-            FROM spending
-            WHERE amount < 50000
-        """,
-        "daily burn excluding large purchases": """
-            SELECT SUM(amount) / COUNT(DISTINCT date)
-            FROM spending
-            WHERE amount < 50000
-        """,
-        "what is my daily burn excluding big purchases": """
-            SELECT SUM(amount) / COUNT(DISTINCT date)
-            FROM spending
-            WHERE amount < 50000
-        """,
-        "what is my daily burn excluding large purchases": """
-            SELECT SUM(amount) / COUNT(DISTINCT date)
-            FROM spending
-            WHERE amount < 50000
-        """,
-        "what is my daily burn": """
-            SELECT SUM(amount) / COUNT(DISTINCT date)
-            FROM spending
-        """,
-        "daily burn": """
-            SELECT SUM(amount) / COUNT(DISTINCT date)
-            FROM spending
-        """,
-        "how much did i spend": """
-            SELECT SUM(amount)
-            FROM spending
-        """,
-        "how much did i spend in japan": """
-            SELECT SUM(amount)
-            FROM spending
-            WHERE LOWER(location) = 'japan'
-        """,
-        "total spending by category": """
-            SELECT category, SUM(amount)
-            FROM spending
-            GROUP BY category
-            ORDER BY SUM(amount) DESC
-        """,
-        "what is my total spending by category": """
-            SELECT category, SUM(amount)
-            FROM spending
-            GROUP BY category
-            ORDER BY SUM(amount) DESC
-        """,
-    }
-
-    return known_queries.get(question)
-
-
-def generate_sql_with_llm(question):
-    prompt = f"""
-You are a SQL generator.
-
-Convert the user's question into a SQLite SELECT query.
-
-Rules:
-- Return ONLY SQL.
-- No markdown.
-- No explanation.
-- Only use the spending table.
-- Only generate SELECT queries.
-- Do not modify the database.
-- Use amount for spending calculations.
-- Use raw_text and description when searching for specific purchases.
-- If asked to exclude large one-off purchases, use amount < 50000.
-
-Important definitions:
-- "daily burn" means total spending divided by number of distinct dates.
-- "excluding large purchases" means amount < 50000.
-- Locations should be matched case-insensitively using LOWER(location).
-- If the user asks about Japan, use LOWER(location) = 'japan'.
-- Dates are stored as text like "11/05", not full SQL dates.
-
-Schema:
-{SCHEMA}
-
-User question:
-{question}
-"""
-
-    result = subprocess.run(
-        ["ollama", "run", MODEL, prompt],
-        capture_output=True,
-        text=True
-    )
-
-    return clean_sql(result.stdout)
+SQL_BY_INTENT = {
+    "daily_burn_excluding_large": """
+        SELECT SUM(amount) / COUNT(DISTINCT date)
+        FROM spending
+        WHERE amount < 50000
+    """,
+    "daily_burn": """
+        SELECT SUM(amount) / COUNT(DISTINCT date)
+        FROM spending
+    """,
+    "category_totals": """
+        SELECT category, SUM(amount)
+        FROM spending
+        GROUP BY category
+        ORDER BY SUM(amount) DESC
+    """,
+    "food_total": """
+        SELECT SUM(amount)
+        FROM spending
+        WHERE category = 'food'
+    """,
+    "total_japan": """
+        SELECT SUM(amount)
+        FROM spending
+        WHERE LOWER(location) = 'japan'
+    """,
+    "total": """
+        SELECT SUM(amount)
+        FROM spending
+    """,
+}
 
 
 def run_sql(sql):
-    if not sql.lower().startswith("select"):
-        raise ValueError(f"Unsafe/non-SELECT SQL generated:\n{sql}")
-
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
-
     cursor.execute(sql)
     rows = cursor.fetchall()
-
     conn.close()
     return rows
 
 
+def yen(value):
+    if value is None:
+        return "¥0"
+    return f"¥{value:,.0f}"
+
+
+def print_answer(intent, rows):
+    print("\nAnswer:")
+
+    if intent in ["daily_burn", "daily_burn_excluding_large"]:
+        print(f"{yen(rows[0][0])} per day")
+
+    elif intent in ["total", "total_japan", "food_total"]:
+        print(yen(rows[0][0]))
+
+    elif intent == "category_totals":
+        for category, total in rows:
+            print(f"{category}: {yen(total)}")
+
+    else:
+        print(rows)
+
+
 def main():
     question = input("Ask a spending question: ")
-    normalised = normalise_question(question)
 
-    known_sql = get_known_query(normalised)
+    intent = detect_intent(question)
 
-    if known_sql:
-        sql = clean_sql(known_sql)
-    else:
-        sql = generate_sql_with_llm(question)
+    if intent == "unknown":
+        print("\nI don't know how to answer that yet.")
+        print("Try: daily burn, total spending, food total, category totals.")
+        return
 
-    print("\nGenerated SQL:")
-    print(sql)
+    sql = SQL_BY_INTENT[intent]
+
+    print(f"\nDetected intent: {intent}")
+    print("\nSQL:")
+    print(" ".join(sql.split()))
 
     rows = run_sql(sql)
-
-    print("\nResult:")
-    for row in rows:
-        print(row)
+    print_answer(intent, rows)
 
 
 if __name__ == "__main__":
