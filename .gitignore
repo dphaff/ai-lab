@@ -1,0 +1,6 @@
+inputs/
+outputs/
+__pycache__/
+*.json
+*.csv
+.DS_Store
