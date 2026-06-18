@@ -1,7 +1,7 @@
 from pathlib import Path
 from build_index import split_into_chunks
 
-FILE = Path("journal_rag/journal_files/may_2026.md")
+FILE = Path("journal_ai/journals/may_2026.md")
 
 text = FILE.read_text()
 chunks = split_into_chunks(text, FILE.name)

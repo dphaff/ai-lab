@@ -4,7 +4,7 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-DB = Path("journal_rag/journal_index.db")
+DB = Path("journal_ai/journal_index.db")
 
 EMBED_MODEL = "nomic-embed-text"
 CHAT_MODEL = "llama3.2:3b"

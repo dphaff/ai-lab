@@ -5,8 +5,8 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-JOURNAL_DIR = Path("journal_rag/journal_files")
-DB = Path("journal_rag/journal_index.db")
+JOURNAL_DIR = Path("journal_ai/journals")
+DB = Path("journal_ai/journal_index.db")
 EMBED_MODEL = "nomic-embed-text"
 
 
