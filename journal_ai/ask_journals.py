@@ -72,34 +72,54 @@ TEXT:
     )
 
     prompt = f"""
-You are analysing my personal journal.
+    You are analysing my personal journal excerpts.
 
-Rules:
-- Use only the journal excerpts provided.
-- Separate facts from interpretation.
-- Mention dates when useful.
-- Look for patterns, not motivational advice.
+    Task:
+    Answer the user's question using the excerpts.
 
-Answer format:
-1. Direct answer
-2. Evidence by date/section
-3. Uncertainties / missing context
+    Important:
+    A "mistake" does not need to be explicitly called a mistake.
+    Treat these as evidence of mistakes:
+    - missed anchors
+    - "should have" statements
+    - poor sleep caused by controllable behaviour
+    - skipped exercise
+    - dumb spend
+    - over-scrolling
+    - avoidance
+    - work/procrastination mismatch
+    - repeated friction in era reviews
 
-Rules:
-- Cite the DATE/SECTION for each claim.
-- Include frictions/negatives as well as positives.
-- If the evidence is mixed, say so.
-- Do not give advice unless asked.
-- Do not ask follow-up questions.
+    Rules:
+    - Use ONLY the excerpts.
+    - Be concrete.
+    - Do not say "no clear repeated mistakes" if there are missed anchors or repeated frictions.
+    - Separate strong evidence from tentative inference.
+    - Cite dates/sections.
+    - No advice.
+    - No follow-up questions.
 
-Journal excerpts:
+    Answer format:
 
-{context}
+    ## Direct answer
+    List 3-6 repeated mistakes or say if evidence is genuinely insufficient.
 
+    ## Evidence
+    For each mistake:
+    - Pattern:
+    - Evidence:
+    - Confidence: High / Medium / Low
 
-Question:
-{question}
-"""
+    ## Missing context
+    Briefly state limitations.
+
+    Journal excerpts:
+
+    {context}
+
+    Question:
+    {question}
+    """
 
     result = subprocess.run(
         ["ollama", "run", CHAT_MODEL, prompt],
@@ -130,7 +150,7 @@ def main():
     scored.sort(reverse=True, key=lambda x: x[0])
 
     best_chunks = [
-        chunk for score, chunk in scored[:5]
+        chunk for score, chunk in scored[:8]
     ]
 
     print("\nRetrieved:")
