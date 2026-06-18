@@ -4,3 +4,5 @@ __pycache__/
 *.json
 *.csv
 .DS_Store
+journal_rag/journal_files/
+journal_rag/*.db
