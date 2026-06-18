@@ -1,8 +1,13 @@
+# Private data
 inputs/
 outputs/
-__pycache__/
+journal_ai/journals/
+spending_ai/inputs/
+spending_ai/outputs/
+
+# Generated files
+*.db
 *.json
 *.csv
+__pycache__/
 .DS_Store
-journal_rag/journal_files/
-journal_rag/*.db
